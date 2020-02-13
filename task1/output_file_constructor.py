@@ -1,38 +1,44 @@
 #!/usr/bin/env python3
 
 
+from typing import Tuple
 from abc import ABCMeta, abstractmethod
 import json
-from lxml import etree
+from lxml import etree  # this cython module "lxml" is used because "xml" cannot make pretty-printed files
 
-from json_parser import Room, Student
+from input_files_parser import Room, Student
+
+
+class OutputFileConstructorError(Exception):
+    pass
 
 
 class DataFileConstructor(metaclass=ABCMeta):
     @abstractmethod
-    def __init__(self, rooms_object):
+    def __init__(self, rooms_object: Tuple[Room, ...]) -> None:
         pass
 
     @abstractmethod
-    def construct_file(self, output_file_path):
+    def construct_file(self, output_file_path: str) -> None:
         pass
 
 
 class RoomStudentEncode(json.JSONEncoder):
+    """This class is used for encoding Room and Student objects to JSON."""
     def default(self, o):
         if isinstance(o, Room):
             return {"id": o.room_id, "name": o.name, "students": o.students}
         elif isinstance(o, Student):
             return {"id": o.student_id, "name": o.name}
         else:
-            super().default(self, o)
+            super().default(self, o)  # it must raise exception
 
 
 class JSONConstructor(DataFileConstructor):
-    def __init__(self, rooms_objects):
+    def __init__(self, rooms_objects: Tuple[Room, ...]) -> None:
         self._rooms_objects = rooms_objects
 
-    def construct_file(self, output_file_path="output.json"):
+    def construct_file(self, output_file_path: str = "output.json") -> None:
         with open(file=output_file_path, mode="w") as json_output_fh:
             json.dump(obj=self._rooms_objects,
                       fp=json_output_fh,
@@ -43,10 +49,10 @@ class JSONConstructor(DataFileConstructor):
 
 
 class XMLConstructor(DataFileConstructor):
-    def __init__(self, rooms_objects):
+    def __init__(self, rooms_objects: Tuple[Room, ...]) -> None:
         self._rooms_objects = rooms_objects
 
-    def _make_xml_root(self):
+    def _make_xml_root(self) -> etree._ElementTree:  # because of the etree.ElementTree is a cython function
         root_xml = etree.Element("rooms")
 
         for room_object in self._rooms_objects:
@@ -73,7 +79,7 @@ class XMLConstructor(DataFileConstructor):
         tree = etree.ElementTree(root_xml)
         return tree
 
-    def construct_file(self, output_file_path="output.xml"):
+    def construct_file(self, output_file_path: str = "output.xml") -> None:
         tree = self._make_xml_root()
         tree.write(output_file_path, encoding="utf-8", pretty_print=True)
 
